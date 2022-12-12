@@ -173,7 +173,7 @@ def main():
         with sqlite3.connect(msg_db) as db:
             messages(db, data)
             media(db, data, options.media)
-            vcard(db, data)
+            #vcard(db, data)
         create_html(data, options.output, options.template, options.embedded)
     else:
         print(

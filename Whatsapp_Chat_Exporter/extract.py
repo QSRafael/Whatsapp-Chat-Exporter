@@ -192,34 +192,49 @@ def contacts(db, data):
 def messages(db, data):
     # Get message history
     c = db.cursor()
-    c.execute("""SELECT count() FROM messages""")
+    c.execute("""SELECT count() FROM message""")
     total_row_number = c.fetchone()[0]
     print(f"Gathering messages...(0/{total_row_number})", end="\r")
 
     phone_number_re = re.compile(r"[0-9]+@s.whatsapp.net")
-    c.execute("""SELECT messages.key_remote_jid,
-                        messages._id,
-                        messages.key_from_me,
-                        messages.timestamp,
-                        messages.data,
-                        messages.status,
-                        messages.edit_version,
-                        messages.thumb_image,
-                        messages.remote_resource,
-                        messages.media_wa_type,
-                        messages.latitude,
-                        messages.longitude,
-                        messages_quotes.key_id as quoted,
-                        messages.key_id,
-                        messages_quotes.data,
-                        messages.media_caption
-                 FROM messages
-                    LEFT JOIN messages_quotes
-                        ON messages.quoted_row_id = messages_quotes._id
-                 WHERE messages.key_remote_jid <> '-1';""")
+    c.execute("""SELECT chat_view.raw_string_jid as key_remote_jid,
+                        message._id,
+                        message.from_me as key_from_me,
+                        message.timestamp,
+                        message.text_data as data,
+                        message.status,
+                        message_future.version as edit_version,
+                        message_thumbnail.thumbnail as thumb_image,
+                        jid.raw_string as remote_resource,
+                        message_media.mime_type as media_wa_type,
+                        message_location.latitude,
+                        message_location.longitude,
+                        message_quoted.key_id as quoted,
+                        message.key_id,
+                        message_quoted.text_data as quoted_data,
+                        message_media.media_caption
+                 FROM message
+                    LEFT JOIN message_quoted
+                        ON message_quoted.message_row_id = message._id
+                    LEFT JOIN message_location
+                        ON message_location.message_row_id = message._id
+                    LEFT JOIN message_media
+                        ON message_media.message_row_id = message._id
+                    LEFT JOIN message_thumbnail
+                        ON message_thumbnail.message_row_id = message._id
+                    LEFT JOIN message_future
+                        ON message_future.message_row_id = message._id
+                    LEFT JOIN chat_view
+                        ON chat_view._id = message.chat_row_id
+                    LEFT JOIN jid
+                        ON jid._id = message.sender_jid_row_id
+                    WHERE key_remote_jid <> '-1';""")
     i = 0
     content = c.fetchone()
     while content is not None:
+        if content[0]=="5511966218203-1488389134@g.us":
+            content = c.fetchone()
+            continue
         if content[0] not in data:
             data[content[0]] = {"name": None, "messages": {}}
         data[content[0]]["messages"][content[1]] = {
@@ -351,16 +366,18 @@ def media(db, data, media_folder):
     total_row_number = c.fetchone()[0]
     print(f"\nGathering media...(0/{total_row_number})", end="\r")
     i = 0
-    c.execute("""SELECT messages.key_remote_jid,
+    c.execute("""SELECT chat_view.raw_string_jid as key_remote_jid,
                         message_row_id,
                         file_path,
                         message_url,
                         mime_type,
                         media_key
                  FROM message_media
-                    INNER JOIN messages
-                        ON message_media.message_row_id = messages._id
-                ORDER BY messages.key_remote_jid ASC""")
+                    INNER JOIN message
+                        ON message_media.message_row_id = message._id
+                    LEFT JOIN chat_view
+                        ON chat_view._id = message_media.chat_row_id
+                ORDER BY key_remote_jid ASC""")
     content = c.fetchone()
     mime = MimeTypes()
     while content is not None:
