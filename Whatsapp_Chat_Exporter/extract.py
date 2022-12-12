@@ -1,5 +1,3 @@
-#!/usr/bin/python3
-
 import sqlite3
 import json
 import jinja2
@@ -37,12 +35,9 @@ def sanitize_except(html):
 
 
 def determine_day(last, current):
-    last = datetime.fromtimestamp(last).date()
-    current = datetime.fromtimestamp(current).date()
-    if last == current:
-        return None
-    else:
-        return current
+    date = datetime.fromtimestamp(current)
+    return date.strftime("%d/%m/%Y")
+
 
 CRYPT14_OFFSETS = [
     {"iv": 67, "db": 191},
@@ -246,6 +241,7 @@ def messages(db, data):
             "meta": False,
             "data": None
         }
+
         if "-" in content[0] and content[2] == 0:
             name = None
             if content[8] in data:
@@ -256,6 +252,7 @@ def messages(db, data):
                     fallback = None
             else:
                 fallback = None
+
 
             data[content[0]]["messages"][content[1]]["sender"] = name or fallback
         else:
@@ -418,9 +415,9 @@ def media(db, data, media_folder):
 def vcard(db, data):
     c = db.cursor()
     c.execute("""SELECT message_row_id,
-                        messages.key_remote_jid,
+                        chat_view.raw_string_jid as key_remote_jid,
                         vcard,
-                        messages.media_name
+                        message.media_name
                  FROM messages_vcards
                     INNER JOIN messages
                         ON messages_vcards.message_row_id = messages._id
